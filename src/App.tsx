@@ -29,6 +29,7 @@ import { FocusPrayerMode } from './components/FocusPrayerMode';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthModal } from './components/AuthModal';
 import { OverseerDashboard } from './components/OverseerDashboard';
+import { GettingStartedTour } from './components/GettingStartedTour';
 
 import { 
   RoleMode, 
@@ -65,6 +66,8 @@ const LOCAL_STORAGE_KEY = 'horemow_assignment_app_state_v2';
 
 export default function App() {
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
+  const [showGettingStartedTour, setShowGettingStartedTour] = useState<boolean>(false);
+  const [isNewUserSession, setIsNewUserSession] = useState<boolean>(false);
 
   // Auth & Category States
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
@@ -189,8 +192,11 @@ export default function App() {
     uid: string, 
     email: string, 
     fullName: string, 
-    loadedState?: UserAssignmentState | null
+    loadedState?: UserAssignmentState | null,
+    isNewAccount = false
   ) => {
+    setIsNewUserSession(isNewAccount);
+    setShowGettingStartedTour(isNewAccount && cat === 'member');
     setAccountType(cat);
     if (cat === 'overseer') {
       setIsOverseerView(true);
@@ -215,6 +221,8 @@ export default function App() {
   const handleSignOut = async () => {
     await logoutUserFromFirebase();
     setCurrentUser(null);
+    setIsNewUserSession(false);
+    setShowGettingStartedTour(false);
     setAccountType('member');
     setIsOverseerView(false);
     setShowAuthModal(true);
@@ -554,6 +562,7 @@ export default function App() {
           {activeTab === 'dashboard' && (
             <DashboardOverview
               state={appState}
+              isNewUser={isNewUserSession}
               setTab={setActiveTab}
               quickAddSermon={quickAddSermon}
               quickAddChapter={quickAddChapter}
@@ -637,6 +646,16 @@ export default function App() {
           showToast("Using App in Local Manual Mode");
         }}
       />
+
+      {showGettingStartedTour && (
+        <GettingStartedTour
+          onClose={() => setShowGettingStartedTour(false)}
+          onOpenSection={(tab) => {
+            setActiveTab(tab);
+            setShowGettingStartedTour(false);
+          }}
+        />
+      )}
 
       {/* Member Profile Modal */}
       {showProfileModal && (

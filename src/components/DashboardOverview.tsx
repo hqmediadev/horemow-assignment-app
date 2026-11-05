@@ -21,6 +21,7 @@ import { HoremowLogo } from './HoremowLogo';
 
 interface DashboardOverviewProps {
   state: UserAssignmentState;
+  isNewUser?: boolean;
   setTab: (tab: string) => void;
   quickAddSermon: () => void;
   quickAddChapter: () => void;
@@ -30,6 +31,7 @@ interface DashboardOverviewProps {
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   state,
+  isNewUser = false,
   setTab,
   quickAddSermon,
   quickAddChapter,
@@ -108,7 +110,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
             
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Welcome back, {state.profile.fullName}
+              {isNewUser ? 'Welcome' : 'Welcome back'}, {state.profile.fullName}
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-xl">
               {roleConfig.description}

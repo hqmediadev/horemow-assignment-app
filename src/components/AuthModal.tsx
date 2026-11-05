@@ -31,7 +31,8 @@ interface AuthModalProps {
     uid: string, 
     email: string, 
     fullName: string, 
-    loadedState?: UserAssignmentState | null
+    loadedState?: UserAssignmentState | null,
+    isNewAccount?: boolean
   ) => void;
   onContinueManualAccess: () => void;
 }
@@ -92,7 +93,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           lgaDistrict,
           branchFellowship
         );
-        onSuccess(accountType, user.uid, user.email || email, fullName, userData.state);
+        onSuccess(accountType, user.uid, user.email || email, fullName, userData.state, true);
       } else {
         const { user, userData } = await loginUserWithFirebase(email, password);
         const tokenResult = await user.getIdTokenResult();
@@ -103,7 +104,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           user.uid, 
           user.email || email, 
           resolvedName, 
-          userData?.state || null
+          userData?.state || null,
+          false
         );
       }
     } catch (err: any) {
