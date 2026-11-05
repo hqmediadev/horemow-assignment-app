@@ -55,8 +55,22 @@ export interface FirebaseUserData {
   branchFellowship?: string;
   state?: UserAssignmentState;
   overseerNote?: string;
+  onboardingCompleted?: boolean;
   createdAt?: string;
   lastLogin?: string;
+}
+
+const ONBOARDING_ACCOUNT_AGE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function shouldShowGettingStarted(
+  onboardingCompleted: boolean | undefined,
+  accountCreatedAt: string | null,
+): boolean {
+  if (onboardingCompleted !== undefined) return !onboardingCompleted;
+  if (!accountCreatedAt) return false;
+
+  const accountAge = Date.now() - Date.parse(accountCreatedAt);
+  return accountAge >= 0 && accountAge <= ONBOARDING_ACCOUNT_AGE_LIMIT_MS;
 }
 
 /**
@@ -95,6 +109,7 @@ export async function registerUserWithFirebase(
     lgaDistrict: lgaDistrict || '',
     branchFellowship: branchFellowship || '',
     state,
+    onboardingCompleted: false,
     createdAt: new Date().toISOString(),
     lastLogin: new Date().toISOString()
   };
@@ -118,11 +133,23 @@ export async function loginUserWithFirebase(email: string, pass: string): Promis
   let userData: FirebaseUserData | null = null;
   if (userSnap.exists()) {
     userData = userSnap.data() as FirebaseUserData;
-    // update last login timestamp
-    await updateDoc(userDocRef, { lastLogin: new Date().toISOString() });
+    const shouldShowTour = shouldShowGettingStarted(
+      userData.onboardingCompleted,
+      user.metadata.creationTime || null,
+    );
+    const onboardingCompleted = userData.onboardingCompleted ?? !shouldShowTour;
+    await updateDoc(userDocRef, {
+      lastLogin: new Date().toISOString(),
+      ...(userData.onboardingCompleted === undefined ? { onboardingCompleted } : {}),
+    });
+    userData = { ...userData, onboardingCompleted };
   } else {
     const tokenResult = await user.getIdTokenResult();
     if (tokenResult.claims.overseer !== true) {
+      const shouldShowTour = shouldShowGettingStarted(
+        undefined,
+        user.metadata.creationTime || null,
+      );
       const state = createInitialMemberState({
         fullName: user.displayName || 'HOREMOW Member',
         country: 'Nigeria',
@@ -142,6 +169,7 @@ export async function loginUserWithFirebase(email: string, pass: string): Promis
         lgaDistrict: '',
         branchFellowship: '',
         state,
+        onboardingCompleted: !shouldShowTour,
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString(),
       };
@@ -150,6 +178,14 @@ export async function loginUserWithFirebase(email: string, pass: string): Promis
   }
 
   return { user, userData };
+}
+
+export async function completeUserOnboarding(uid: string): Promise<void> {
+  if (!uid || uid === 'guest') {
+    throw new Error('A signed-in member is required to save onboarding progress.');
+  }
+
+  await updateDoc(doc(db, 'users', uid), { onboardingCompleted: true });
 }
 
 /**

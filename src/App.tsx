@@ -58,7 +58,9 @@ import {
   AccountCategory, 
   syncStateToFirestore, 
   logoutUserFromFirebase, 
-  fetchUserDataFromFirestore 
+  fetchUserDataFromFirestore,
+  completeUserOnboarding,
+  shouldShowGettingStarted,
 } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -143,8 +145,14 @@ export default function App() {
         const data = await fetchUserDataFromFirestore(user.uid);
         const tokenResult = await user.getIdTokenResult();
         const isOverseer = tokenResult.claims.overseer === true;
+        const isNewMember = !isOverseer && shouldShowGettingStarted(
+          data?.onboardingCompleted,
+          user.metadata.creationTime || null,
+        );
         setAccountType(isOverseer ? 'overseer' : 'member');
         setIsOverseerView(isOverseer);
+        setIsNewUserSession(isNewMember);
+        setShowGettingStartedTour(isNewMember);
         if (data) {
           if (data.overseerNote) {
             setOverseerNote(data.overseerNote);
@@ -193,10 +201,11 @@ export default function App() {
     email: string, 
     fullName: string, 
     loadedState?: UserAssignmentState | null,
-    isNewAccount = false
+    isNewUser = false
   ) => {
-    setIsNewUserSession(isNewAccount);
-    setShowGettingStartedTour(isNewAccount && cat === 'member');
+    const shouldShowGettingStartedTour = isNewUser && cat === 'member';
+    setIsNewUserSession(shouldShowGettingStartedTour);
+    setShowGettingStartedTour(shouldShowGettingStartedTour);
     setAccountType(cat);
     if (cat === 'overseer') {
       setIsOverseerView(true);
@@ -244,6 +253,21 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const finishGettingStarted = async (tab?: string) => {
+    setShowGettingStartedTour(false);
+    setIsNewUserSession(false);
+    if (tab) setActiveTab(tab);
+
+    if (!currentUser?.uid) return;
+
+    try {
+      await completeUserOnboarding(currentUser.uid);
+    } catch (error) {
+      console.error('Unable to save onboarding completion:', error);
+      showToast('Could not save tour completion. You may see this tour again.');
+    }
   };
 
   // State Updates Handlers
@@ -649,11 +673,8 @@ export default function App() {
 
       {showGettingStartedTour && (
         <GettingStartedTour
-          onClose={() => setShowGettingStartedTour(false)}
-          onOpenSection={(tab) => {
-            setActiveTab(tab);
-            setShowGettingStartedTour(false);
-          }}
+          onClose={() => void finishGettingStarted()}
+          onOpenSection={(tab) => void finishGettingStarted(tab)}
         />
       )}
 
