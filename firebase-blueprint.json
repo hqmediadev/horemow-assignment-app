@@ -1,0 +1,33 @@
+{
+  "entities": {
+    "users": {
+      "title": "User Profile & Assignment State",
+      "description": "Stores profile, account type (member vs overseer), and full spiritual assignment progress for HOREMOW members.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "fullName": { "type": "string font" },
+        "accountType": { "type": "string", "enum": ["member", "overseer"] },
+        "memberId": { "type": "string" },
+        "stateChapter": { "type": "string" },
+        "zoneRegion": { "type": "string" },
+        "assignmentYear": { "type": "number" },
+        "coordinatorName": { "type": "string" },
+        "roleMode": { "type": "string" },
+        "activeConference": { "type": "string" },
+        "conferenceTargets": { "type": "object" },
+        "bibleChapters": { "type": "object" },
+        "bibleNotes": { "type": "object" },
+        "books": { "type": "array" },
+        "sermons": { "type": "array" },
+        "soulsWon": { "type": "array" },
+        "prayerSessions": { "type": "array" },
+        "fastingRecords": { "type": "array" },
+        "overseerNote": { "type": "string" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["uid", "email", "fullName", "accountType"]
+    }
+  }
+}

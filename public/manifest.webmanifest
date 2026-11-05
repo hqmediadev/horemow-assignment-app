@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "HOREMOW Assignment Tracker",
+  "short_name": "HOREMOW",
+  "description": "Track Bible study, HOREMOW reading, prayer, and ministry assignments.",
+  "theme_color": "#047857",
+  "background_color": "#061426",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

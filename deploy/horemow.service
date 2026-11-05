@@ -1,0 +1,27 @@
+[Unit]
+Description=HOREMOW Assignment Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=horemow
+Group=horemow
+WorkingDirectory=/opt/horemow/app
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+EnvironmentFile=/etc/horemow/app.env
+ExecStart=/usr/bin/node /opt/horemow/app/server.cjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
