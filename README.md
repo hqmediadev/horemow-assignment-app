@@ -1,4 +1,6 @@
-# HOREMOW Assignment Tracker
+# horemow-assignment-app
+
+Horemow Assignment App
 
 Installable web app for tracking Bible study, HOREMOW reading, prayer, and ministry assignments.
 
