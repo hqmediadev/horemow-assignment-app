@@ -17,7 +17,8 @@ import {
 import { 
   AccountCategory, 
   registerUserWithFirebase, 
-  loginUserWithFirebase 
+  loginUserWithFirebase,
+  signInWithGoogle,
 } from '../lib/firebase';
 import { UserAssignmentState } from '../types';
 import { HoremowLogo } from './HoremowLogo';
@@ -123,6 +124,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         msg = 'Firebase Authentication succeeded, but Firestore rejected the assignment profile. Deploy the project Firestore rules, then sign in again to initialize the record.';
       }
       setErrorMsg(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setErrorMsg(null);
+    setLoading(true);
+
+    try {
+      const { user, userData } = await signInWithGoogle();
+      const tokenResult = await user.getIdTokenResult();
+      const resolvedAccountType: AccountCategory = tokenResult.claims.overseer === true ? 'overseer' : 'member';
+      const resolvedName = userData?.fullName || user.displayName || 'HOREMOW Member';
+      onSuccess(
+        resolvedAccountType,
+        user.uid,
+        user.email || '',
+        resolvedName,
+        userData?.state || null,
+        userData?.onboardingCompleted === false,
+      );
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      if (err.code === 'auth/popup-closed-by-user') {
+        setErrorMsg('Google sign-in was cancelled. You can try again whenever you are ready.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setErrorMsg('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
+      } else if (err.code === 'auth/operation-not-allowed') {
+        setErrorMsg('Google sign-in is disabled for this Firebase project. Enable Google under Firebase Console > Authentication > Sign-in method.');
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        setErrorMsg('An account already exists with this email. Sign in using the method you used when you created the account; Google account linking is not available yet.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setErrorMsg(`This domain is not authorized for Firebase Authentication. Add ${window.location.hostname} under Firebase Console > Authentication > Settings > Authorized domains.`);
+      } else if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
+        setErrorMsg('Google authentication succeeded, but Firestore rejected the assignment profile. Deploy the project Firestore rules, then sign in again.');
+      } else {
+        setErrorMsg(err.message || 'Unable to continue with Google. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -381,6 +421,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           </form>
 
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+            </div>
+            <div className="relative flex justify-center text-[10px] font-bold uppercase">
+              <span className="bg-white px-3 text-slate-400 dark:bg-slate-900 sepia-mode:bg-[#fbf0d9]">Or continue with</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="flex min-h-12 w-full items-center justify-center gap-3 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <svg aria-hidden="true" viewBox="0 0 48 48" className="h-5 w-5">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z" transform="translate(0 4)" />
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.72 7.18l7.64 5.93c4.46-4.12 7.12-10.2 7.12-17.58Z" />
+                <path fill="#FBBC05" d="M10.53 28.59a14.4 14.4 0 0 1 0-9.18l-7.98-6.19a23.9 23.9 0 0 0 0 21.56l7.98-6.19Z" transform="translate(0 4)" />
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.8l-7.64-5.93c-2.13 1.43-4.85 2.28-8.26 2.28-6.26 0-11.57-4.22-13.46-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z" transform="translate(0 -4)" />
+              </svg>
+            )}
+            <span>{isRegister ? 'Sign up with Google' : 'Continue with Google'}</span>
+          </button>
+
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
@@ -388,7 +456,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
             <div className="relative flex justify-center text-[10px] uppercase font-bold">
               <span className="bg-white dark:bg-slate-900 sepia-mode:bg-[#fbf0d9] px-3 text-slate-400">
-                OR MANUAL / LOCAL ACCESS
+              OR USE OFFLINE ACCESS
               </span>
             </div>
           </div>

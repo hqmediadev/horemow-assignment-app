@@ -23,7 +23,7 @@ This deployment example targets a single Ubuntu VPS running Node.js, systemd, an
 
 ### 1. Configure Firebase
 
-1. In Firebase Console, open **Authentication → Sign-in method** and enable **Email/Password**.
+1. In Firebase Console, open **Authentication → Sign-in method** and enable **Email/Password** and **Google**. Configure the Google provider's support email.
 2. Under **Authentication → Settings → Authorized domains**, add `da.horemow.com`.
 3. Create/enable the Cloud Firestore database for the project, then deploy the restrictive rules:
 

@@ -3,6 +3,8 @@ import {
   getAuth, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User as FirebaseUser
@@ -120,64 +122,71 @@ export async function registerUserWithFirebase(
   return { user, userData };
 }
 
+async function loadOrProvisionUserData(user: FirebaseUser): Promise<FirebaseUserData | null> {
+  const userDocRef = doc(db, 'users', user.uid);
+  const userSnap = await getDoc(userDocRef);
+
+  if (userSnap.exists()) {
+    const userData = userSnap.data() as FirebaseUserData;
+    const onboardingCompleted = userData.onboardingCompleted ?? !shouldShowGettingStarted(
+      undefined,
+      user.metadata.creationTime || null,
+    );
+    await updateDoc(userDocRef, {
+      lastLogin: new Date().toISOString(),
+      ...(userData.onboardingCompleted === undefined ? { onboardingCompleted } : {}),
+    });
+    return { ...userData, onboardingCompleted };
+  }
+
+  const tokenResult = await user.getIdTokenResult();
+  if (tokenResult.claims.overseer === true) return null;
+
+  const state = createInitialMemberState({
+    fullName: user.displayName || 'HOREMOW Member',
+    country: 'Nigeria',
+    stateChapter: 'National Headquarter',
+    zoneRegion: 'Central Region',
+    lgaDistrict: '',
+    branchFellowship: '',
+  });
+  const shouldShowTour = shouldShowGettingStarted(
+    undefined,
+    user.metadata.creationTime || null,
+  );
+  const userData: FirebaseUserData = {
+    uid: user.uid,
+    email: user.email || '',
+    fullName: state.profile.fullName,
+    accountType: 'member',
+    country: state.profile.country,
+    stateChapter: state.profile.stateChapter,
+    zoneRegion: state.profile.zoneRegion,
+    lgaDistrict: '',
+    branchFellowship: '',
+    state,
+    onboardingCompleted: !shouldShowTour,
+    createdAt: new Date().toISOString(),
+    lastLogin: new Date().toISOString(),
+  };
+  await setDoc(userDocRef, userData);
+  return userData;
+}
+
 /**
  * Sign in existing user with Firebase Auth
  */
 export async function loginUserWithFirebase(email: string, pass: string): Promise<{ user: FirebaseUser; userData: FirebaseUserData | null }> {
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
   const user = userCredential.user;
-
-  const userDocRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userDocRef);
-
-  let userData: FirebaseUserData | null = null;
-  if (userSnap.exists()) {
-    userData = userSnap.data() as FirebaseUserData;
-    const shouldShowTour = shouldShowGettingStarted(
-      userData.onboardingCompleted,
-      user.metadata.creationTime || null,
-    );
-    const onboardingCompleted = userData.onboardingCompleted ?? !shouldShowTour;
-    await updateDoc(userDocRef, {
-      lastLogin: new Date().toISOString(),
-      ...(userData.onboardingCompleted === undefined ? { onboardingCompleted } : {}),
-    });
-    userData = { ...userData, onboardingCompleted };
-  } else {
-    const tokenResult = await user.getIdTokenResult();
-    if (tokenResult.claims.overseer !== true) {
-      const shouldShowTour = shouldShowGettingStarted(
-        undefined,
-        user.metadata.creationTime || null,
-      );
-      const state = createInitialMemberState({
-        fullName: user.displayName || 'HOREMOW Member',
-        country: 'Nigeria',
-        stateChapter: 'National Headquarter',
-        zoneRegion: 'Central Region',
-        lgaDistrict: '',
-        branchFellowship: '',
-      });
-      userData = {
-        uid: user.uid,
-        email: user.email || email,
-        fullName: state.profile.fullName,
-        accountType: 'member',
-        country: state.profile.country,
-        stateChapter: state.profile.stateChapter,
-        zoneRegion: state.profile.zoneRegion,
-        lgaDistrict: '',
-        branchFellowship: '',
-        state,
-        onboardingCompleted: !shouldShowTour,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-      };
-      await setDoc(userDocRef, userData);
-    }
-  }
-
+  const userData = await loadOrProvisionUserData(user);
   return { user, userData };
+}
+
+export async function signInWithGoogle(): Promise<{ user: FirebaseUser; userData: FirebaseUserData | null }> {
+  const result = await signInWithPopup(auth, new GoogleAuthProvider());
+  const userData = await loadOrProvisionUserData(result.user);
+  return { user: result.user, userData };
 }
 
 export async function completeUserOnboarding(uid: string): Promise<void> {
