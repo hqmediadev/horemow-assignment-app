@@ -502,13 +502,16 @@ export function createInitialMemberState(profile: Pick<UserProfile, 'fullName' |
     conferenceTargets,
     bibleChapters: {},
     bibleNotes: {},
-    books: INITIAL_BOOKS.map((book) => ({
-      ...book,
-      pagesRead: 0,
-      status: 'not_started',
-      notes: undefined,
-      keyTakeaways: [],
-    })),
+    books: INITIAL_BOOKS.map((book) => {
+      const cleanBook = { ...book };
+      delete cleanBook.notes;
+      return {
+        ...cleanBook,
+        pagesRead: 0,
+        status: 'not_started',
+        keyTakeaways: [],
+      };
+    }),
     sermons: [],
     soulsWon: [],
     prayerSessions: [],
