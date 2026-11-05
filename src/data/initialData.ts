@@ -1,4 +1,4 @@
-import { HoremowBook, BiblePlan, RoleMode, RoleTargetConfig, SermonMessage, SoulWonRecord, PrayerSession, FastingRecord, UserProfile, ConferenceType, ConferenceTarget } from '../types';
+import { HoremowBook, BiblePlan, RoleMode, RoleTargetConfig, SermonMessage, SoulWonRecord, PrayerSession, FastingRecord, UserProfile, UserAssignmentState, ConferenceType, ConferenceTarget } from '../types';
 
 export const ROLE_CONFIGS: Record<RoleMode, RoleTargetConfig> = {
   pastor: {
@@ -471,3 +471,48 @@ export const INITIAL_FASTINGS: FastingRecord[] = [
     notes: 'Spent afternoon hours reading Scriptures and praying.'
   }
 ];
+
+export function createInitialMemberState(profile: Pick<UserProfile, 'fullName' | 'country' | 'stateChapter' | 'zoneRegion' | 'lgaDistrict' | 'branchFellowship'>): UserAssignmentState {
+  const conferenceTargets = Object.fromEntries(
+    (Object.entries(INITIAL_CONFERENCES) as [ConferenceType, ConferenceTarget][]).map(([conference, target]) => [
+      conference,
+      {
+        ...target,
+        requiredBibleBooks: [...target.requiredBibleBooks],
+        requiredBookIds: [...target.requiredBookIds],
+      },
+    ]),
+  ) as Record<ConferenceType, ConferenceTarget>;
+
+  return {
+    profile: {
+      fullName: profile.fullName,
+      memberId: '',
+      country: profile.country,
+      stateChapter: profile.stateChapter,
+      zoneRegion: profile.zoneRegion,
+      lgaDistrict: profile.lgaDistrict,
+      branchFellowship: profile.branchFellowship,
+      assignmentYear: new Date().getFullYear(),
+      coordinatorName: '',
+    },
+    roleMode: 'member',
+    theme: 'light',
+    activeConference: 'annual',
+    conferenceTargets,
+    bibleChapters: {},
+    bibleNotes: {},
+    books: INITIAL_BOOKS.map((book) => ({
+      ...book,
+      pagesRead: 0,
+      status: 'not_started',
+      notes: undefined,
+      keyTakeaways: [],
+    })),
+    sermons: [],
+    soulsWon: [],
+    prayerSessions: [],
+    fastingRecords: [],
+    lastUpdated: new Date().toISOString(),
+  };
+}

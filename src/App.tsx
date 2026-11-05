@@ -440,7 +440,6 @@ export default function App() {
             setShowAuthModal(false);
             showToast("Using App in Local Manual Mode");
           }}
-          currentState={appState}
         />
       </>
     );
@@ -637,7 +636,6 @@ export default function App() {
           setShowAuthModal(false);
           showToast("Using App in Local Manual Mode");
         }}
-        currentState={appState}
       />
 
       {/* Member Profile Modal */}

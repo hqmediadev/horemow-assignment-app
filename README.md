@@ -23,15 +23,16 @@ This deployment example targets a single Ubuntu VPS running Node.js, systemd, an
 
 ### 1. Configure Firebase
 
-1. Add your production domain to Firebase Authentication's authorized domains.
-2. Deploy the restrictive Firestore rules:
+1. In Firebase Console, open **Authentication → Sign-in method** and enable **Email/Password**.
+2. Under **Authentication → Settings → Authorized domains**, add `da.horemow.com`.
+3. Create/enable the Cloud Firestore database for the project, then deploy the restrictive rules:
 
    ```sh
    npx firebase-tools deploy --only firestore:rules --project horemow-assignment-57e4f
    ```
 
-3. In Google Cloud Console, restrict the Firebase web API key in `firebase-applet-config.json` to the required Firebase APIs and your production HTTP referrers. The web API key identifies the Firebase project; it is not an admin credential.
-4. Public registration creates member accounts only. To promote an existing account, run the admin script from a trusted machine with Application Default Credentials authorized for Firebase Authentication and Firestore Admin:
+4. In Google Cloud Console, restrict the Firebase web API key in `firebase-applet-config.json` to the required Firebase APIs and your production HTTP referrers. The web API key identifies the Firebase project; it is not an admin credential.
+5. Public registration creates member accounts only and initializes the member's assignment targets with empty progress records. A successful sign-in also initializes a missing member profile. To promote an existing account, run the admin script from a trusted machine with Application Default Credentials authorized for Firebase Authentication and Firestore Admin:
 
    ```sh
    gcloud auth application-default login

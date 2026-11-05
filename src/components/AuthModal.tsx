@@ -34,7 +34,6 @@ interface AuthModalProps {
     loadedState?: UserAssignmentState | null
   ) => void;
   onContinueManualAccess: () => void;
-  currentState: UserAssignmentState;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
@@ -42,8 +41,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   pageMode = false,
   onClose,
   onSuccess,
-  onContinueManualAccess,
-  currentState
+  onContinueManualAccess
 }) => {
   const [isRegister, setIsRegister] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
@@ -88,13 +86,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           email,
           password,
           fullName,
-          accountType,
           country,
           stateChapter,
           zoneRegion,
           lgaDistrict,
-          branchFellowship,
-          currentState
+          branchFellowship
         );
         onSuccess(accountType, user.uid, user.email || email, fullName, userData.state);
       } else {
@@ -117,6 +113,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         msg = 'Invalid email or password. Please try again or create a new account.';
       } else if (err.code === 'auth/email-already-in-use') {
         msg = 'An account with this email already exists. Please sign in instead.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        msg = 'Email and password sign-in is disabled for this Firebase project. Enable it under Firebase Console > Authentication > Sign-in method.';
+      } else if (err.code === 'auth/unauthorized-domain') {
+        msg = `This domain is not authorized for Firebase Authentication. Add ${window.location.hostname} under Firebase Console > Authentication > Settings > Authorized domains.`;
+      } else if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
+        msg = 'Firebase Authentication succeeded, but Firestore rejected the assignment profile. Deploy the project Firestore rules, then sign in again to initialize the record.';
       }
       setErrorMsg(msg);
     } finally {

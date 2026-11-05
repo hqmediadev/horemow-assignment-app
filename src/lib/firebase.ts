@@ -18,7 +18,8 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import firebaseConfigData from '../../firebase-applet-config.json';
-import { UserAssignmentState, UserProfile } from '../types';
+import { UserAssignmentState } from '../types';
+import { createInitialMemberState } from '../data/initialData';
 
 const firebaseConfig = {
   apiKey: firebaseConfigData.apiKey,
@@ -65,43 +66,35 @@ export async function registerUserWithFirebase(
   email: string, 
   pass: string, 
   fullName: string, 
-  accountType: AccountCategory,
   country: string,
   stateChapter: string,
   zoneRegion: string,
   lgaDistrict: string,
-  branchFellowship: string,
-  initialState: UserAssignmentState
+  branchFellowship: string
 ): Promise<{ user: FirebaseUser; userData: FirebaseUserData }> {
   const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
   const user = userCredential.user;
 
-  const profile: UserProfile = {
-    ...initialState.profile,
-    fullName: fullName || initialState.profile.fullName,
-    country: country || initialState.profile.country || 'Nigeria',
-    stateChapter: stateChapter || initialState.profile.stateChapter,
-    zoneRegion: zoneRegion || initialState.profile.zoneRegion,
-    lgaDistrict: lgaDistrict || initialState.profile.lgaDistrict || '',
-    branchFellowship: branchFellowship || initialState.profile.branchFellowship || '',
-  };
-
-  const updatedState: UserAssignmentState = {
-    ...initialState,
-    profile,
-  };
+  const state = createInitialMemberState({
+    fullName,
+    country: country || 'Nigeria',
+    stateChapter: stateChapter || 'National Headquarter',
+    zoneRegion: zoneRegion || 'Central Region',
+    lgaDistrict,
+    branchFellowship,
+  });
 
   const userData: FirebaseUserData = {
     uid: user.uid,
     email: user.email || email,
     fullName: fullName || 'HOREMOW Member',
-    accountType,
-    country: country || 'Nigeria',
-    stateChapter: stateChapter || 'National Headquarter',
-    zoneRegion: zoneRegion || 'Central Region',
+    accountType: 'member',
+    country: state.profile.country,
+    stateChapter: state.profile.stateChapter,
+    zoneRegion: state.profile.zoneRegion,
     lgaDistrict: lgaDistrict || '',
     branchFellowship: branchFellowship || '',
-    state: updatedState,
+    state,
     createdAt: new Date().toISOString(),
     lastLogin: new Date().toISOString()
   };
@@ -127,6 +120,33 @@ export async function loginUserWithFirebase(email: string, pass: string): Promis
     userData = userSnap.data() as FirebaseUserData;
     // update last login timestamp
     await updateDoc(userDocRef, { lastLogin: new Date().toISOString() });
+  } else {
+    const tokenResult = await user.getIdTokenResult();
+    if (tokenResult.claims.overseer !== true) {
+      const state = createInitialMemberState({
+        fullName: user.displayName || 'HOREMOW Member',
+        country: 'Nigeria',
+        stateChapter: 'National Headquarter',
+        zoneRegion: 'Central Region',
+        lgaDistrict: '',
+        branchFellowship: '',
+      });
+      userData = {
+        uid: user.uid,
+        email: user.email || email,
+        fullName: state.profile.fullName,
+        accountType: 'member',
+        country: state.profile.country,
+        stateChapter: state.profile.stateChapter,
+        zoneRegion: state.profile.zoneRegion,
+        lgaDistrict: '',
+        branchFellowship: '',
+        state,
+        createdAt: new Date().toISOString(),
+        lastLogin: new Date().toISOString(),
+      };
+      await setDoc(userDocRef, userData);
+    }
   }
 
   return { user, userData };
@@ -141,7 +161,7 @@ export async function syncStateToFirestore(uid: string, state: UserAssignmentSta
     const userDocRef = doc(db, 'users', uid);
     await setDoc(userDocRef, {
       uid,
-      email: state.profile.fullName ? `${state.profile.fullName.toLowerCase().replace(/\s+/g, '')}@horemow.org` : '',
+      email: auth.currentUser?.email || '',
       fullName: state.profile.fullName,
       country: state.profile.country || 'Nigeria',
       stateChapter: state.profile.stateChapter,
