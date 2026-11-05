@@ -29,7 +29,7 @@ import { FocusPrayerMode } from './components/FocusPrayerMode';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { AuthModal } from './components/AuthModal';
 import { OverseerDashboard } from './components/OverseerDashboard';
-import { GettingStartedTour } from './components/GettingStartedTour';
+import { GettingStartedTour, GETTING_STARTED_STEPS } from './components/GettingStartedTour';
 
 import { 
   RoleMode, 
@@ -69,6 +69,7 @@ const LOCAL_STORAGE_KEY = 'horemow_assignment_app_state_v2';
 export default function App() {
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
   const [showGettingStartedTour, setShowGettingStartedTour] = useState<boolean>(false);
+  const [gettingStartedStep, setGettingStartedStep] = useState<number>(0);
   const [isNewUserSession, setIsNewUserSession] = useState<boolean>(false);
 
   // Auth & Category States
@@ -153,6 +154,10 @@ export default function App() {
         setIsOverseerView(isOverseer);
         setIsNewUserSession(isNewMember);
         setShowGettingStartedTour(isNewMember);
+        if (isNewMember) {
+          setGettingStartedStep(0);
+          setActiveTab('dashboard');
+        }
         if (data) {
           if (data.overseerNote) {
             setOverseerNote(data.overseerNote);
@@ -204,8 +209,10 @@ export default function App() {
     isNewUser = false
   ) => {
     const shouldShowGettingStartedTour = isNewUser && cat === 'member';
+    setGettingStartedStep(0);
     setIsNewUserSession(shouldShowGettingStartedTour);
     setShowGettingStartedTour(shouldShowGettingStartedTour);
+    if (shouldShowGettingStartedTour) setActiveTab('dashboard');
     setAccountType(cat);
     if (cat === 'overseer') {
       setIsOverseerView(true);
@@ -255,10 +262,9 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const finishGettingStarted = async (tab?: string) => {
+  const finishGettingStarted = async () => {
     setShowGettingStartedTour(false);
     setIsNewUserSession(false);
-    if (tab) setActiveTab(tab);
 
     if (!currentUser?.uid) return;
 
@@ -268,6 +274,22 @@ export default function App() {
       console.error('Unable to save onboarding completion:', error);
       showToast('Could not save tour completion. You may see this tour again.');
     }
+  };
+
+  const changeGettingStartedStep = (stepIndex: number) => {
+    const nextStep = GETTING_STARTED_STEPS[stepIndex];
+    if (!nextStep) return;
+
+    setGettingStartedStep(stepIndex);
+    setActiveTab(nextStep.id);
+  };
+
+  const selectAppTab = (tab: string) => {
+    setActiveTab(tab);
+    if (!showGettingStartedTour) return;
+
+    const stepIndex = GETTING_STARTED_STEPS.findIndex((step) => step.id === tab);
+    if (stepIndex >= 0) setGettingStartedStep(stepIndex);
   };
 
   // State Updates Handlers
@@ -568,7 +590,7 @@ export default function App() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => selectAppTab(tab.id)}
                   className={`shrink-0 cursor-pointer whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-bold transition-all sm:px-4 ${
                     active
                       ? 'bg-emerald-600 text-white shadow-xs'
@@ -674,7 +696,8 @@ export default function App() {
       {showGettingStartedTour && (
         <GettingStartedTour
           onClose={() => void finishGettingStarted()}
-          onOpenSection={(tab) => void finishGettingStarted(tab)}
+          stepIndex={gettingStartedStep}
+          onStepChange={changeGettingStartedStep}
         />
       )}
 
