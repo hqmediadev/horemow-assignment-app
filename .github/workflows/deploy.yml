@@ -17,10 +17,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
 
+      # Installs all framework components, including bun and fallback development dependencies
       - name: Install Project Dependencies
-        run: npm ci
+        run: npm install
+
+      # Explicitly forces esbuild runner optimization parameters inside the runner container
+      - name: Configure Esbuild Toolchain Binary
+        run: npm install -D esbuild
 
       - name: Inject Production Firebase Credentials Securely
         run: |
@@ -29,6 +33,7 @@ jobs:
       - name: Compile Pristine Production Build
         run: npm run build
 
+      # Copies your 'dist/' folder AND your built backend 'server.cjs' and 'server.cjs.map' 
       - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -36,8 +41,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           source: "dist/*,server.cjs*"
-          target: "/var/www/da.horemow.com"
-          strip_components: 0
+          target: "/var/www/://horemow.com"
+          strip_components: 1
+          overwrite: true
+          tar_tmp_path: "/tmp"
 
       - name: Restart Background Node Services via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -46,5 +53,5 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /var/www/da.horemow.com
+            cd /var/www/://horemow.com
             pm2 restart testimony --update-env || true
