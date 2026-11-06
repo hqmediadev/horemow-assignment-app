@@ -122,9 +122,15 @@ export async function registerUserWithFirebase(
   return { user, userData };
 }
 
-async function loadOrProvisionUserData(user: FirebaseUser): Promise<FirebaseUserData | null> {
+async function loadOrProvisionUserData(
+  user: FirebaseUser,
+  tokenResultPromise: ReturnType<FirebaseUser['getIdTokenResult']> = user.getIdTokenResult(),
+): Promise<FirebaseUserData | null> {
   const userDocRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userDocRef);
+  const [userSnap, resolvedTokenResult] = await Promise.all([
+    getDoc(userDocRef),
+    tokenResultPromise,
+  ]);
 
   if (userSnap.exists()) {
     const userData = userSnap.data() as FirebaseUserData;
@@ -132,15 +138,16 @@ async function loadOrProvisionUserData(user: FirebaseUser): Promise<FirebaseUser
       undefined,
       user.metadata.creationTime || null,
     );
-    await updateDoc(userDocRef, {
+    void updateDoc(userDocRef, {
       lastLogin: new Date().toISOString(),
       ...(userData.onboardingCompleted === undefined ? { onboardingCompleted } : {}),
+    }).catch((error: unknown) => {
+      console.error('Error updating user login metadata:', error);
     });
     return { ...userData, onboardingCompleted };
   }
 
-  const tokenResult = await user.getIdTokenResult();
-  if (tokenResult.claims.overseer === true) return null;
+  if (resolvedTokenResult.claims.overseer === true) return null;
 
   const state = createInitialMemberState({
     fullName: user.displayName || 'HOREMOW Member',
@@ -176,17 +183,33 @@ async function loadOrProvisionUserData(user: FirebaseUser): Promise<FirebaseUser
 /**
  * Sign in existing user with Firebase Auth
  */
-export async function loginUserWithFirebase(email: string, pass: string): Promise<{ user: FirebaseUser; userData: FirebaseUserData | null }> {
+export async function loginUserWithFirebase(email: string, pass: string): Promise<{
+  user: FirebaseUser;
+  userData: FirebaseUserData | null;
+  tokenResult: Awaited<ReturnType<FirebaseUser['getIdTokenResult']>>;
+}> {
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
   const user = userCredential.user;
-  const userData = await loadOrProvisionUserData(user);
-  return { user, userData };
+  const tokenResultPromise = user.getIdTokenResult();
+  const [tokenResult, userData] = await Promise.all([
+    tokenResultPromise,
+    loadOrProvisionUserData(user, tokenResultPromise),
+  ]);
+  return { user, userData, tokenResult };
 }
 
-export async function signInWithGoogle(): Promise<{ user: FirebaseUser; userData: FirebaseUserData | null }> {
+export async function signInWithGoogle(): Promise<{
+  user: FirebaseUser;
+  userData: FirebaseUserData | null;
+  tokenResult: Awaited<ReturnType<FirebaseUser['getIdTokenResult']>>;
+}> {
   const result = await signInWithPopup(auth, new GoogleAuthProvider());
-  const userData = await loadOrProvisionUserData(result.user);
-  return { user: result.user, userData };
+  const tokenResultPromise = result.user.getIdTokenResult();
+  const [tokenResult, userData] = await Promise.all([
+    tokenResultPromise,
+    loadOrProvisionUserData(result.user, tokenResultPromise),
+  ]);
+  return { user: result.user, userData, tokenResult };
 }
 
 export async function completeUserOnboarding(uid: string): Promise<void> {
