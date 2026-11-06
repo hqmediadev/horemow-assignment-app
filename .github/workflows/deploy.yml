@@ -18,22 +18,22 @@ jobs:
         with:
           node-version: 20
 
-      # Installs all framework components, including bun and fallback development dependencies
       - name: Install Project Dependencies
         run: npm install
 
-      # Explicitly forces esbuild runner optimization parameters inside the runner container
       - name: Configure Esbuild Toolchain Binary
         run: npm install -D esbuild
 
+      # This creates the JSON configuration file using a clean heredoc to preserve the exact format
       - name: Inject Production Firebase Credentials Securely
         run: |
-          echo '${{ secrets.FIREBASE_CONFIG_JSON }}' > firebase-applet-config.json
+          cat << 'EOF' > firebase-applet-config.json
+          ${{ secrets.FIREBASE_CONFIG_JSON }}
+          EOF
 
       - name: Compile Pristine Production Build
         run: npm run build
 
-      # Copies your 'dist/' folder AND your built backend 'server.cjs' and 'server.cjs.map' 
       - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
