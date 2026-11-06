@@ -53,5 +53,6 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd /var/www/://horemow.com
-            pm2 restart testimony --update-env || true
+            export PATH=$PATH:/usr/bin:/usr/local/bin:/home/ubuntu/.npm-global/bin
+            cd /var/www/da.horemow.com
+            pm2 restart horemow-app || pm2 start server.cjs --name horemow-app || true
