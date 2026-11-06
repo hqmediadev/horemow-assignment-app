@@ -143,8 +143,10 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // Logged in via Firebase
-        const data = await fetchUserDataFromFirestore(user.uid);
-        const tokenResult = await user.getIdTokenResult();
+        const [data, tokenResult] = await Promise.all([
+          fetchUserDataFromFirestore(user.uid),
+          user.getIdTokenResult(),
+        ]);
         const isOverseer = tokenResult.claims.overseer === true;
         const isNewMember = !isOverseer && shouldShowGettingStarted(
           data?.onboardingCompleted,
