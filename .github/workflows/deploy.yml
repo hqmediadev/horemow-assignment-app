@@ -19,17 +19,7 @@ jobs:
           node-version: 20
 
       - name: Install Project Dependencies
-        run: npm install
-
-      - name: Configure Esbuild Toolchain Binary
-        run: npm install -D esbuild
-
-      # This creates the JSON configuration file using a clean heredoc to preserve the exact format
-      - name: Inject Production Firebase Credentials Securely
-        run: |
-          cat << 'EOF' > firebase-applet-config.json
-          ${{ secrets.FIREBASE_CONFIG_JSON }}
-          EOF
+        run: npm ci
 
       - name: Compile Pristine Production Build
         run: npm run build
@@ -40,9 +30,8 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "dist/*,server.cjs*"
-          target: "/var/www/://horemow.com"
-          strip_components: 1
+          source: "dist,server.cjs,server.cjs.map"
+          target: "/var/www/da.horemow.com"
           overwrite: true
           tar_tmp_path: "/tmp"
 
@@ -55,4 +44,5 @@ jobs:
           script: |
             export PATH=$PATH:/usr/bin:/usr/local/bin:/home/ubuntu/.npm-global/bin
             cd /var/www/da.horemow.com
-            pm2 restart horemow-app || pm2 start server.cjs --name horemow-app || true
+            pm2 restart horemow-app || pm2 start server.cjs --name horemow-app
+            curl --fail --silent --show-error --retry 5 --retry-delay 2 --retry-connrefused http://127.0.0.1:3000/api/health
