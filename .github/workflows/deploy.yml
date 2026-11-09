@@ -22,12 +22,17 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci
 
-      # Enterprise Practice: Uses safe environment variable injection to prevent string distortion
+      # Enterprise Practice: Uses native Node.js to write raw data byte-for-byte with zero trailing modifications
       - name: Inject Production Firebase Credentials Securely
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = process.env.FIREBASE_SECRET_DATA;
+            // Write the raw string data with absolutely no trailing system additions
+            fs.writeFileSync('firebase-applet-config.json', data.trim());
         env:
           FIREBASE_SECRET_DATA: ${{ secrets.FIREBASE_CONFIG_JSON }}
-        run: |
-          printenv FIREBASE_SECRET_DATA > firebase-applet-config.json
 
       - name: Compile Pristine Production Build
         run: npm run build
