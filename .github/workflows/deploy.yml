@@ -33,15 +33,15 @@ jobs:
             // Clean out hidden UTF-8 Byte Order Marks (\uFEFF) and whitespace padding
             const cleanJson = data.replace(/^\uFEFF/, '').trim();
             
-            fs.writeFileSync('firebase-config.json', cleanJson, 'utf8');
-        env:
-          FIREBASE_SECRET_DATA: ${{ secrets.FIREBASE_CONFIG_JSON }}
-
-      - name: Compile Pristine Production Build
-        run: npm run build
-
-      - name: Prune Dev Dependencies
-        run: npm prune --omit=dev
+                 - name: Deploy Immutable Assets to VPS via Secure SFTP
+        uses: appleboy/sftp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "dist/,server.cjs,package.json,package-lock.json"
+          target: "/opt/horemow/app"
+          overwrite: true
 
       - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
         uses: appleboy/scp-action@v0.1.7
