@@ -43,16 +43,18 @@ jobs:
       - name: Prune Dev Dependencies
         run: npm prune --omit=dev
 
-      # Enterprise Practice: Uses secure modern SFTP subsystem streams to bypass SCP blocks
-      - name: Deploy Immutable Assets to VPS via Secure SFTP
-        uses: appleboy/sftp-action@v0.1.7
+      # Enterprise Practice: Uses verified open-source transfer module targeting our secured directory
+      - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
+        uses: appleboy/scp-action@v1.0.1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
           source: "dist/,server.cjs,package.json,package-lock.json"
           target: "/opt/horemow/app"
           overwrite: true
+          tar_tmp_path: "/tmp"
 
       - name: Restart Background Node Services via SSH
         uses: appleboy/ssh-action@v1.0.3
