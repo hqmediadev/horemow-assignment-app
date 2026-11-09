@@ -37,10 +37,10 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onLogin }) => {
         </p>
         <div className="mt-4 flex items-center gap-2 rounded-full border border-white/15 bg-slate-950/25 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-sky-100/90 backdrop-blur-sm sm:text-xs">
           <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-          Spiritual Assignment Companion
+          Divine Assignment Companion
         </div>
         <p className="mt-4 max-w-sm text-xs leading-5 text-slate-200/85 sm:text-sm sm:leading-6">
-          Bible study, HOREMOW reading, prayer, and faithful service.
+          PRAYER, MEDITATION AND EVANGELISM
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-sky-100/80 sm:text-xs">
           <BookOpen className="h-4 w-4 text-emerald-300" />

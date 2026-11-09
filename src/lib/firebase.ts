@@ -9,19 +9,20 @@ import {
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { 
+import {
   getFirestore, 
   doc, 
   setDoc, 
   getDoc, 
   getDocs, 
   collection, 
-  onSnapshot,
   updateDoc
-} from 'firebase/firestore';
+} from 'firebase/firestore/lite';
 import firebaseConfigData from '../../firebase-applet-config.json';
 import { UserAssignmentState } from '../types';
 import { createInitialMemberState } from '../data/initialData';
+import { shouldShowGettingStarted } from './onboarding';
+export { shouldShowGettingStarted } from './onboarding';
 
 const firebaseConfig = {
   apiKey: firebaseConfigData.apiKey,
@@ -37,6 +38,7 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // Initialize Firebase Auth
 export const auth = getAuth(app);
+export { onAuthStateChanged };
 
 // Initialize Firestore with Database ID if specified
 export const db = firebaseConfigData.firestoreDatabaseId
@@ -62,18 +64,12 @@ export interface FirebaseUserData {
   lastLogin?: string;
 }
 
-const ONBOARDING_ACCOUNT_AGE_LIMIT_MS = 30 * 24 * 60 * 60 * 1000;
-
-export function shouldShowGettingStarted(
-  onboardingCompleted: boolean | undefined,
-  accountCreatedAt: string | null,
-): boolean {
-  if (onboardingCompleted !== undefined) return !onboardingCompleted;
-  if (!accountCreatedAt) return false;
-
-  const accountAge = Date.now() - Date.parse(accountCreatedAt);
-  return accountAge >= 0 && accountAge <= ONBOARDING_ACCOUNT_AGE_LIMIT_MS;
+interface FirebaseAuthContext {
+  userData: FirebaseUserData | null;
+  isOverseer: boolean;
 }
+
+const authContextPromises = new Map<string, Promise<FirebaseAuthContext>>();
 
 /**
  * Register new user with Firebase Auth and initialize profile in Firestore
@@ -116,20 +112,23 @@ export async function registerUserWithFirebase(
     lastLogin: new Date().toISOString()
   };
 
-  // Save to Firestore
-  await setDoc(doc(db, 'users', user.uid), userData);
-
-  return { user, userData };
+  const contextPromise = setDoc(doc(db, 'users', user.uid), userData)
+    .then(() => ({ userData, isOverseer: false }));
+  authContextPromises.set(user.uid, contextPromise);
+  try {
+    await contextPromise;
+    return { user, userData };
+  } catch (error) {
+    authContextPromises.delete(user.uid);
+    throw error;
+  }
 }
 
-async function loadOrProvisionUserData(
-  user: FirebaseUser,
-  tokenResultPromise: ReturnType<FirebaseUser['getIdTokenResult']> = user.getIdTokenResult(),
-): Promise<FirebaseUserData | null> {
+async function loadAuthContext(user: FirebaseUser): Promise<FirebaseAuthContext> {
   const userDocRef = doc(db, 'users', user.uid);
-  const [userSnap, resolvedTokenResult] = await Promise.all([
+  const [userSnap, tokenResult] = await Promise.all([
     getDoc(userDocRef),
-    tokenResultPromise,
+    user.getIdTokenResult(),
   ]);
 
   if (userSnap.exists()) {
@@ -144,10 +143,13 @@ async function loadOrProvisionUserData(
     }).catch((error: unknown) => {
       console.error('Error updating user login metadata:', error);
     });
-    return { ...userData, onboardingCompleted };
+    return {
+      userData: { ...userData, onboardingCompleted },
+      isOverseer: tokenResult.claims.overseer === true,
+    };
   }
 
-  if (resolvedTokenResult.claims.overseer === true) return null;
+  if (tokenResult.claims.overseer === true) return { userData: null, isOverseer: true };
 
   const state = createInitialMemberState({
     fullName: user.displayName || 'HOREMOW Member',
@@ -177,39 +179,39 @@ async function loadOrProvisionUserData(
     lastLogin: new Date().toISOString(),
   };
   await setDoc(userDocRef, userData);
-  return userData;
+  return { userData, isOverseer: false };
+}
+
+export function getFirebaseAuthContext(user: FirebaseUser): Promise<FirebaseAuthContext> {
+  const existingPromise = authContextPromises.get(user.uid);
+  if (existingPromise) return existingPromise;
+
+  const contextPromise = loadAuthContext(user);
+  authContextPromises.set(user.uid, contextPromise);
+  void contextPromise.catch(() => {
+    if (authContextPromises.get(user.uid) === contextPromise) {
+      authContextPromises.delete(user.uid);
+    }
+  });
+  return contextPromise;
+}
+
+export function clearFirebaseAuthContextCache(): void {
+  authContextPromises.clear();
 }
 
 /**
  * Sign in existing user with Firebase Auth
  */
-export async function loginUserWithFirebase(email: string, pass: string): Promise<{
-  user: FirebaseUser;
-  userData: FirebaseUserData | null;
-  tokenResult: Awaited<ReturnType<FirebaseUser['getIdTokenResult']>>;
-}> {
+export async function loginUserWithFirebase(email: string, pass: string): Promise<{ user: FirebaseUser } & FirebaseAuthContext> {
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
   const user = userCredential.user;
-  const tokenResultPromise = user.getIdTokenResult();
-  const [tokenResult, userData] = await Promise.all([
-    tokenResultPromise,
-    loadOrProvisionUserData(user, tokenResultPromise),
-  ]);
-  return { user, userData, tokenResult };
+  return { user, ...await getFirebaseAuthContext(user) };
 }
 
-export async function signInWithGoogle(): Promise<{
-  user: FirebaseUser;
-  userData: FirebaseUserData | null;
-  tokenResult: Awaited<ReturnType<FirebaseUser['getIdTokenResult']>>;
-}> {
+export async function signInWithGoogle(): Promise<{ user: FirebaseUser } & FirebaseAuthContext> {
   const result = await signInWithPopup(auth, new GoogleAuthProvider());
-  const tokenResultPromise = result.user.getIdTokenResult();
-  const [tokenResult, userData] = await Promise.all([
-    tokenResultPromise,
-    loadOrProvisionUserData(result.user, tokenResultPromise),
-  ]);
-  return { user: result.user, userData, tokenResult };
+  return { user: result.user, ...await getFirebaseAuthContext(result.user) };
 }
 
 export async function completeUserOnboarding(uid: string): Promise<void> {

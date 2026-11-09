@@ -96,8 +96,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         );
         onSuccess(accountType, user.uid, user.email || email, fullName, userData.state, userData.onboardingCompleted === false);
       } else {
-        const { user, userData, tokenResult } = await loginUserWithFirebase(email, password);
-        const resolvedAccountType: AccountCategory = tokenResult.claims.overseer === true ? 'overseer' : 'member';
+        const { user, userData, isOverseer } = await loginUserWithFirebase(email, password);
+        const resolvedAccountType: AccountCategory = isOverseer ? 'overseer' : 'member';
         const resolvedName = userData?.fullName || userData?.state?.profile?.fullName || 'HOREMOW Member';
         onSuccess(
           resolvedAccountType, 
@@ -133,8 +133,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
 
     try {
-      const { user, userData, tokenResult } = await signInWithGoogle();
-      const resolvedAccountType: AccountCategory = tokenResult.claims.overseer === true ? 'overseer' : 'member';
+      const { user, userData, isOverseer } = await signInWithGoogle();
+      const resolvedAccountType: AccountCategory = isOverseer ? 'overseer' : 'member';
       const resolvedName = userData?.fullName || user.displayName || 'HOREMOW Member';
       onSuccess(
         resolvedAccountType,

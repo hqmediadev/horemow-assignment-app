@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -17,19 +17,20 @@ import {
   LogOut
 } from 'lucide-react';
 import { Navbar } from './components/Navbar';
-import { DashboardOverview } from './components/DashboardOverview';
-import { BibleTracker } from './components/BibleTracker';
-import { BooksTracker } from './components/BooksTracker';
-import { SermonTracker } from './components/SermonTracker';
-import { SoulWinningTracker } from './components/SoulWinningTracker';
-import { PrayerTimer } from './components/PrayerTimer';
-import { ReportGenerator } from './components/ReportGenerator';
-import { AiAssistantModal } from './components/AiAssistantModal';
-import { FocusPrayerMode } from './components/FocusPrayerMode';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { AuthModal } from './components/AuthModal';
-import { OverseerDashboard } from './components/OverseerDashboard';
 import { GettingStartedTour, GETTING_STARTED_STEPS } from './components/GettingStartedTour';
+
+const DashboardOverview = lazy(() => import('./components/DashboardOverview').then(module => ({ default: module.DashboardOverview })));
+const BibleTracker = lazy(() => import('./components/BibleTracker').then(module => ({ default: module.BibleTracker })));
+const BooksTracker = lazy(() => import('./components/BooksTracker').then(module => ({ default: module.BooksTracker })));
+const SermonTracker = lazy(() => import('./components/SermonTracker').then(module => ({ default: module.SermonTracker })));
+const SoulWinningTracker = lazy(() => import('./components/SoulWinningTracker').then(module => ({ default: module.SoulWinningTracker })));
+const PrayerTimer = lazy(() => import('./components/PrayerTimer').then(module => ({ default: module.PrayerTimer })));
+const ReportGenerator = lazy(() => import('./components/ReportGenerator').then(module => ({ default: module.ReportGenerator })));
+const AiAssistantModal = lazy(() => import('./components/AiAssistantModal').then(module => ({ default: module.AiAssistantModal })));
+const FocusPrayerMode = lazy(() => import('./components/FocusPrayerMode').then(module => ({ default: module.FocusPrayerMode })));
+const WelcomeScreen = lazy(() => import('./components/WelcomeScreen').then(module => ({ default: module.WelcomeScreen })));
+const AuthModal = lazy(() => import('./components/AuthModal').then(module => ({ default: module.AuthModal })));
+const OverseerDashboard = lazy(() => import('./components/OverseerDashboard').then(module => ({ default: module.OverseerDashboard })));
 
 import { 
   RoleMode, 
@@ -53,16 +54,8 @@ import {
   INITIAL_FASTINGS,
   INITIAL_CONFERENCES 
 } from './data/initialData';
-import { 
-  auth, 
-  AccountCategory, 
-  syncStateToFirestore, 
-  logoutUserFromFirebase, 
-  fetchUserDataFromFirestore,
-  completeUserOnboarding,
-  shouldShowGettingStarted,
-} from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import type { AccountCategory } from './lib/firebase';
+import { shouldShowGettingStarted } from './lib/onboarding';
 
 const LOCAL_STORAGE_KEY = 'horemow_assignment_app_state_v2';
 
@@ -140,53 +133,67 @@ export default function App() {
 
   // Listen to Firebase Auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Logged in via Firebase
-        const [data, tokenResult] = await Promise.all([
-          fetchUserDataFromFirestore(user.uid),
-          user.getIdTokenResult(),
-        ]);
-        const isOverseer = tokenResult.claims.overseer === true;
-        const isNewMember = !isOverseer && shouldShowGettingStarted(
-          data?.onboardingCompleted,
-          user.metadata.creationTime || null,
-        );
-        setAccountType(isOverseer ? 'overseer' : 'member');
-        setIsOverseerView(isOverseer);
-        setIsNewUserSession(isNewMember);
-        setShowGettingStartedTour(isNewMember);
-        if (isNewMember) {
-          setGettingStartedStep(0);
-          setActiveTab('dashboard');
-        }
-        if (data) {
-          if (data.overseerNote) {
-            setOverseerNote(data.overseerNote);
-          }
-          if (data.state) {
-            setAppState(data.state);
-          }
-          setCurrentUser({
-            uid: user.uid,
-            email: user.email || '',
-            fullName: data.fullName || data.state?.profile?.fullName || 'HOREMOW Member'
-          });
-        } else {
-          setCurrentUser({
-            uid: user.uid,
-            email: user.email || '',
-            fullName: appState.profile.fullName || 'HOREMOW Member'
-          });
-        }
-        setShowAuthModal(false);
-        setShowWelcome(false);
-      } else {
-        setCurrentUser(null);
-      }
-    });
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
 
-    return () => unsubscribe();
+    void import('./lib/firebase')
+      .then((firebase) => {
+        if (!active) return;
+
+        unsubscribe = firebase.onAuthStateChanged(firebase.auth, async (user) => {
+          if (user) {
+            try {
+              const { userData: data, isOverseer } = await firebase.getFirebaseAuthContext(user);
+              const isNewMember = !isOverseer && shouldShowGettingStarted(
+                data?.onboardingCompleted,
+                user.metadata.creationTime || null,
+              );
+              setAccountType(isOverseer ? 'overseer' : 'member');
+              setIsOverseerView(isOverseer);
+              setIsNewUserSession(isNewMember);
+              setShowGettingStartedTour(isNewMember);
+              if (isNewMember) {
+                setGettingStartedStep(0);
+                setActiveTab('dashboard');
+              }
+              if (data) {
+                if (data.overseerNote) {
+                  setOverseerNote(data.overseerNote);
+                }
+                if (data.state) {
+                  setAppState(data.state);
+                }
+                setCurrentUser({
+                  uid: user.uid,
+                  email: user.email || '',
+                  fullName: data.fullName || data.state?.profile?.fullName || 'HOREMOW Member'
+                });
+              } else {
+                setCurrentUser({
+                  uid: user.uid,
+                  email: user.email || '',
+                  fullName: appState.profile.fullName || 'HOREMOW Member'
+                });
+              }
+              setShowAuthModal(false);
+              setShowWelcome(false);
+            } catch (error) {
+              console.error('Unable to restore Firebase session:', error);
+            }
+          } else {
+            firebase.clearFirebaseAuthContextCache();
+            setCurrentUser(null);
+          }
+        });
+      })
+      .catch((error: unknown) => {
+        console.error('Unable to initialize Firebase authentication:', error);
+      });
+
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
   }, [isManualAccessMode]);
 
   // Sync state to LocalStorage and Firebase Firestore on change
@@ -198,7 +205,11 @@ export default function App() {
     }
 
     if (currentUser?.uid) {
-      syncStateToFirestore(currentUser.uid, appState);
+      void import('./lib/firebase')
+        .then(({ syncStateToFirestore }) => syncStateToFirestore(currentUser.uid, appState))
+        .catch((error: unknown) => {
+          console.error('Unable to load Firebase state sync:', error);
+        });
     }
   }, [appState, currentUser, accountType]);
 
@@ -237,6 +248,7 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
+    const { logoutUserFromFirebase } = await import('./lib/firebase');
     await logoutUserFromFirebase();
     setCurrentUser(null);
     setIsNewUserSession(false);
@@ -271,6 +283,7 @@ export default function App() {
     if (!currentUser?.uid) return;
 
     try {
+      const { completeUserOnboarding } = await import('./lib/firebase');
       await completeUserOnboarding(currentUser.uid);
     } catch (error) {
       console.error('Unable to save onboarding completion:', error);
@@ -476,27 +489,31 @@ export default function App() {
   if (showWelcome && !currentUser && !isManualAccessMode) {
     return (
       <>
-        <WelcomeScreen
-          onLogin={() => {
-            setShowWelcome(false);
-            setShowAuthModal(true);
-          }}
-        />
-        <AuthModal
-          isOpen={showAuthModal}
-          pageMode
-          onClose={() => {
-            setShowAuthModal(false);
-            setShowWelcome(true);
-          }}
-          onSuccess={handleAuthSuccess}
-          onContinueManualAccess={() => {
-            setIsManualAccessMode(true);
-            setShowWelcome(false);
-            setShowAuthModal(false);
-            showToast("Using App in Local Manual Mode");
-          }}
-        />
+        <Suspense fallback={null}>
+          <WelcomeScreen
+            onLogin={() => {
+              setShowWelcome(false);
+              setShowAuthModal(true);
+            }}
+          />
+          {showAuthModal && (
+            <AuthModal
+              isOpen
+              pageMode
+              onClose={() => {
+                setShowAuthModal(false);
+                setShowWelcome(true);
+              }}
+              onSuccess={handleAuthSuccess}
+              onContinueManualAccess={() => {
+                setIsManualAccessMode(true);
+                setShowWelcome(false);
+                setShowAuthModal(false);
+                showToast("Using App in Local Manual Mode");
+              }}
+            />
+          )}
+        </Suspense>
       </>
     );
   }
@@ -544,10 +561,12 @@ export default function App() {
 
       {/* Main Container */}
       {isOverseerView ? (
-        <OverseerDashboard
-          overseerName={currentUser?.fullName || appState.profile.fullName || 'Overseer'}
-          onSwitchToMyAssignment={() => setIsOverseerView(false)}
-        />
+        <Suspense fallback={<div className="p-6 text-center text-sm">Loading dashboard...</div>}>
+          <OverseerDashboard
+            overseerName={currentUser?.fullName || appState.profile.fullName || 'Overseer'}
+            onSwitchToMyAssignment={() => setIsOverseerView(false)}
+          />
+        </Suspense>
       ) : (
         <main className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:space-y-6 sm:px-6 sm:py-6 lg:px-8">
           
@@ -607,6 +626,7 @@ export default function App() {
           </div>
 
           {/* Tab Views */}
+          <Suspense fallback={<div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Loading section...</div>}>
           {activeTab === 'dashboard' && (
             <DashboardOverview
               state={appState}
@@ -675,32 +695,39 @@ export default function App() {
           {activeTab === 'report' && (
             <ReportGenerator state={appState} />
           )}
+          </Suspense>
 
         </main>
       )}
 
       {/* Auth Gate Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => {
-          setShowAuthModal(false);
-          if (!currentUser && !isManualAccessMode) setShowWelcome(true);
-        }}
-        onSuccess={handleAuthSuccess}
-        onContinueManualAccess={() => {
-          setIsManualAccessMode(true);
-          setShowWelcome(false);
-          setShowAuthModal(false);
-          showToast("Using App in Local Manual Mode");
-        }}
-      />
+      {showAuthModal && (
+        <Suspense fallback={null}>
+          <AuthModal
+            isOpen
+            onClose={() => {
+              setShowAuthModal(false);
+              if (!currentUser && !isManualAccessMode) setShowWelcome(true);
+            }}
+            onSuccess={handleAuthSuccess}
+            onContinueManualAccess={() => {
+              setIsManualAccessMode(true);
+              setShowWelcome(false);
+              setShowAuthModal(false);
+              showToast("Using App in Local Manual Mode");
+            }}
+          />
+        </Suspense>
+      )}
 
       {showGettingStartedTour && (
-        <GettingStartedTour
-          onClose={() => void finishGettingStarted()}
-          stepIndex={gettingStartedStep}
-          onStepChange={changeGettingStartedStep}
-        />
+        <Suspense fallback={null}>
+          <GettingStartedTour
+            onClose={() => void finishGettingStarted()}
+            stepIndex={gettingStartedStep}
+            onStepChange={changeGettingStartedStep}
+          />
+        </Suspense>
       )}
 
       {/* Member Profile Modal */}
@@ -857,11 +884,15 @@ export default function App() {
       )}
 
       {/* AI Assistant Modal */}
-      <AiAssistantModal
-        isOpen={showAiModal}
-        onClose={() => setShowAiModal(false)}
-        state={appState}
-      />
+      {showAiModal && (
+        <Suspense fallback={null}>
+          <AiAssistantModal
+            isOpen
+            onClose={() => setShowAiModal(false)}
+            state={appState}
+          />
+        </Suspense>
+      )}
 
       {/* Floating Voice AI Assistant Trigger Button */}
       {!showAiModal && (
@@ -881,19 +912,21 @@ export default function App() {
 
       {/* Focus Prayer Mode Overlay */}
       {isFocusPrayerMode && (
-        <FocusPrayerMode
-          onClose={() => setIsFocusPrayerMode(false)}
-          onLogSession={(minutes, topic, notes) => {
-            addPrayerSession({
-              date: new Date().toISOString().split('T')[0],
-              durationMinutes: minutes,
-              focusTopic: topic,
-              notes,
-              conferenceTag: appState.activeConference,
-            });
-            setIsFocusPrayerMode(false);
-          }}
-        />
+        <Suspense fallback={null}>
+          <FocusPrayerMode
+            onClose={() => setIsFocusPrayerMode(false)}
+            onLogSession={(minutes, topic, notes) => {
+              addPrayerSession({
+                date: new Date().toISOString().split('T')[0],
+                durationMinutes: minutes,
+                focusTopic: topic,
+                notes,
+                conferenceTag: appState.activeConference,
+              });
+              setIsFocusPrayerMode(false);
+            }}
+          />
+        </Suspense>
       )}
 
     </div>
