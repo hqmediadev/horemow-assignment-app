@@ -22,7 +22,7 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci
 
-      # Enterprise Practice: Uses clean replacement regex to explicitly drop hidden \uFEFF BOM byte markings
+      # Enterprise Practice: Writes directly to the file name required by Vite's configuration
       - name: Inject Production Firebase Credentials Securely
         uses: actions/github-script@v7
         with:
@@ -33,7 +33,7 @@ jobs:
             // Clean out hidden UTF-8 Byte Order Marks (\uFEFF) and whitespace padding
             const cleanJson = data.replace(/^\uFEFF/, '').trim();
             
-            fs.writeFileSync('firebase-applet-config.json', cleanJson, 'utf8');
+            fs.writeFileSync('firebase-config.json', cleanJson, 'utf8');
         env:
           FIREBASE_SECRET_DATA: ${{ secrets.FIREBASE_CONFIG_JSON }}
 
