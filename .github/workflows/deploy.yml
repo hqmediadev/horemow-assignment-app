@@ -17,12 +17,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install Project Dependencies
-        run: npm install
-
-      - name: Configure Esbuild Toolchain Binary
-        run: npm install -D esbuild
+        run: npm ci
 
       # This creates the JSON configuration file using a clean heredoc to preserve the exact format
       - name: Inject Production Firebase Credentials Securely
@@ -34,15 +32,17 @@ jobs:
       - name: Compile Pristine Production Build
         run: npm run build
 
+      - name: Prune Dev Dependencies
+        run: npm prune --omit=dev
+
       - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "dist,server.ts,package.json,package-lock.json"
-          target: "/var/www/://horemow.com"
-          strip_components: 1
+          source: "dist/,server.cjs,package.json,package-lock.json"
+          target: "/opt/horemow/app"
           overwrite: true
           tar_tmp_path: "/tmp"
 
@@ -53,6 +53,13 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            export PATH=$PATH:/usr/bin:/usr/local/bin:/home/ubuntu/.npm-global/bin
-            cd /var/www/da.horemow.com
-            pm2 restart horemow-app || pm2 start server.cjs --name horemow-app || true
+            # 1. Update dependencies inside production space
+            cd /opt/horemow/app
+            sudo npm ci --omit=dev
+
+            # 2. Fix user ownership permissions for the isolated system runner
+            sudo chown -R horemow:horemow /opt/horemow
+
+            # 3. Securely cycle the background service daemon
+            sudo systemctl restart horemow
+            sudo systemctl status horemow
