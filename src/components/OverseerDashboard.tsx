@@ -364,7 +364,7 @@ export const OverseerDashboard: React.FC<OverseerDashboardProps> = ({
           {loading ? (
             <div className="p-12 text-center text-slate-500 space-y-3">
               <Loader2 className="w-8 h-8 animate-spin mx-auto text-emerald-600" />
-              <p className="text-xs font-semibold">Loading member assignment documents from Firebase...</p>
+              <p className="text-xs font-semibold">Loading member assignments...</p>
             </div>
           ) : loadError ? (
             <div className="space-y-3 p-8 text-center">

@@ -109,18 +109,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         );
       }
     } catch (err: any) {
-      console.error('Firebase Auth Error:', err);
-      let msg = err.message || 'Authentication failed. Please check your credentials.';
+      console.error('Authentication error:', err);
+      let msg = 'Authentication failed. Please check your credentials and try again.';
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
         msg = 'Invalid email or password. Please try again or create a new account.';
       } else if (err.code === 'auth/email-already-in-use') {
         msg = 'An account with this email already exists. Please sign in instead.';
       } else if (err.code === 'auth/operation-not-allowed') {
-        msg = 'Email and password sign-in is disabled for this Firebase project. Enable it under Firebase Console > Authentication > Sign-in method.';
+        msg = 'Email and password sign-in is currently unavailable. Please try another sign-in method or contact support.';
       } else if (err.code === 'auth/unauthorized-domain') {
-        msg = `This domain is not authorized for Firebase Authentication. Add ${window.location.hostname} under Firebase Console > Authentication > Settings > Authorized domains.`;
+        msg = 'This website is not authorized for sign-in. Please contact support.';
       } else if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
-        msg = 'Firebase Authentication succeeded, but Firestore rejected the assignment profile. Deploy the project Firestore rules, then sign in again to initialize the record.';
+        msg = 'You signed in, but your assignment profile could not be loaded. Please try again or contact support.';
       }
       setErrorMsg(msg);
     } finally {
@@ -151,15 +151,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } else if (err.code === 'auth/popup-blocked') {
         setErrorMsg('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
       } else if (err.code === 'auth/operation-not-allowed') {
-        setErrorMsg('Google sign-in is disabled for this Firebase project. Enable Google under Firebase Console > Authentication > Sign-in method.');
+        setErrorMsg('Google sign-in is currently unavailable. Please try another sign-in method or contact support.');
       } else if (err.code === 'auth/account-exists-with-different-credential') {
         setErrorMsg('An account already exists with this email. Sign in using the method you used when you created the account; Google account linking is not available yet.');
       } else if (err.code === 'auth/unauthorized-domain') {
-        setErrorMsg(`This domain is not authorized for Firebase Authentication. Add ${window.location.hostname} under Firebase Console > Authentication > Settings > Authorized domains.`);
+        setErrorMsg('This website is not authorized for sign-in. Please contact support.');
       } else if (err.code === 'permission-denied' || err.code === 'firestore/permission-denied') {
-        setErrorMsg('Google authentication succeeded, but Firestore rejected the assignment profile. Deploy the project Firestore rules, then sign in again.');
+        setErrorMsg('You signed in, but your assignment profile could not be loaded. Please try again or contact support.');
       } else {
-        setErrorMsg(err.message || 'Unable to continue with Google. Please try again.');
+        setErrorMsg('Unable to continue with Google. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -393,7 +393,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* Primary Firebase Auth Submit Button */}
+            {/* Primary sign-in submit button */}
             <button
               type="submit"
               disabled={loading}
@@ -402,12 +402,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Authenticating with Firebase...</span>
+                  <span>Signing in...</span>
                 </>
               ) : isRegister ? (
                 <>
                   <UserPlus className="w-4 h-4" />
-                  <span>Create Account & Save to Firebase</span>
+                  <span>Create Account</span>
                 </>
               ) : (
                 <>
@@ -473,7 +473,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Footer info */}
         <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/60 sepia-mode:bg-[#eddcb9]/40 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 text-center">
-          Firebase Auth & Firestore Encrypted Cloud Synchronization
+          Secure sign-in and assignment sync
         </div>
 
       </div>
