@@ -22,10 +22,12 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci
 
-      # Uses direct multi-line echoing to fully parse and inject the valid secret JSON structure
+      # Enterprise Practice: Uses safe environment variable injection to prevent string distortion
       - name: Inject Production Firebase Credentials Securely
+        env:
+          FIREBASE_SECRET_DATA: ${{ secrets.FIREBASE_CONFIG_JSON }}
         run: |
-          echo "${{ secrets.FIREBASE_CONFIG_JSON }}" > firebase-applet-config.json
+          printenv FIREBASE_SECRET_DATA > firebase-applet-config.json
 
       - name: Compile Pristine Production Build
         run: npm run build
