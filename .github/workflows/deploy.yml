@@ -22,12 +22,10 @@ jobs:
       - name: Install Project Dependencies
         run: npm ci
 
-      # This creates the JSON configuration file using a clean heredoc to preserve the exact format
+      # Uses direct multi-line echoing to fully parse and inject the valid secret JSON structure
       - name: Inject Production Firebase Credentials Securely
         run: |
-          cat << 'EOF' > firebase-applet-config.json
-          ${{ secrets.FIREBASE_CONFIG_JSON }}
-          EOF
+          echo "${{ secrets.FIREBASE_CONFIG_JSON }}" > firebase-applet-config.json
 
       - name: Compile Pristine Production Build
         run: npm run build
