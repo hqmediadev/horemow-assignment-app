@@ -43,8 +43,8 @@ jobs:
       - name: Prune Dev Dependencies
         run: npm prune --omit=dev
 
-      # Enterprise Practice: Point directly to the official stable release version (v1.0.0)
-      - name: Deploy Immutable Assets to VPS via Secure Copy (SCP)
+      # Enterprise Practice: Deploy files to a safe user staging directory to bypass root permission blocks
+      - name: Deploy Immutable Assets to VPS Staging Area
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -52,24 +52,36 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
           source: "dist/,server.cjs,package.json,package-lock.json"
-          target: "/opt/horemow/app"
+          target: "/home/ubuntu/horemow-staging"
           overwrite: true
           tar_tmp_path: "/tmp"
 
-      - name: Restart Background Node Services via SSH
+      - name: Move Assets to Production and Restart Services
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            # 1. Update dependencies inside production space
+            # 1. Create target production directory if missing
+            sudo mkdir -p /opt/horemow/app
+
+            # 2. Safely sync staged assets into the production directory using sudo elevate privileges
+            sudo cp -r /home/ubuntu/horemow-staging/dist /opt/horemow/app/
+            sudo cp /home/ubuntu/horemow-staging/server.cjs /opt/horemow/app/
+            sudo cp /home/ubuntu/horemow-staging/package.json /opt/horemow/app/
+            sudo cp /home/ubuntu/horemow-staging/package-lock.json /opt/horemow/app/
+
+            # 3. Clean up the staging area
+            rm -rf /home/ubuntu/horemow-staging
+
+            # 4. Install production dependencies safely inside target production space
             cd /opt/horemow/app
             sudo npm ci --omit=dev
 
-            # 2. Fix user ownership permissions for the isolated system runner
+            # 5. Lock down user ownership privileges back to the isolated system runner
             sudo chown -R horemow:horemow /opt/horemow
 
-            # 3. Securely cycle the background service daemon
+            # 6. Securely cycle the background service daemon
             sudo systemctl restart horemow
             sudo systemctl status horemow
